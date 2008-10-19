@@ -1,0 +1,13 @@
+#!/usr/bin/env python
+import SourceBuilder
+import logging
+import os
+logging.basicConfig(level=logging.DEBUG)
+
+builder = SourceBuilder.builder(os.getcwd())
+builder.build()
+
+#Possible uses of the 'build' command:
+#build source.tar.bz2 - Builds and installs source.tar.bz2
+#build - Builds the current directory.
+#build /path/to/source - Builds the given source
