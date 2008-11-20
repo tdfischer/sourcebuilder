@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import subprocess
 import BuildSystem
 import BuildContext
 import logging
@@ -30,8 +29,7 @@ class CMakeSystem(BuildSystem.BuildSystem):
     if not os.path.exists(self.buildDir()):
       os.mkdir(self.buildDir())
     os.chdir(self.buildDir())
-    print ["cmake","-DCMAKE_INSTALL_PREFIX=%s"%(self.installPath())]+self.cxt.cmake_defines+[self.srcDir(),]
-    ret = subprocess.call(["cmake","-DCMAKE_INSTALL_PREFIX=%s"%(self.installPath())]+self.cxt.cmake_defines+[self.srcDir(),])
+    ret = self.runCommand(["cmake","-DCMAKE_INSTALL_PREFIX=%s"%(self.installPath())]+self.cxt.cmake_defines+[self.srcDir(),])
     if ret == 0:
       return True
   

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 import os
-import subprocess
 import BuildSystem
 import logging
 
@@ -12,12 +11,18 @@ class AutotoolsSystem(BuildSystem.BuildSystem):
   
   @staticmethod
   def canHandle(context):
-    return os.path.exists(context.source+"/configure") or os.path.exists(context.source+"/Makefile")
+    return os.path.exists(context.source+"/configure") or os.path.exists(context.source+"/Makefile") or os.path.exists(context.source+"/autogen.sh")
   
   def configure(self):
     if os.path.exists(self.srcDir()+"/configure"):
         os.chdir(self.buildDir())
-        ret = subprocess.call([self.srcDir()+"/configure", "--prefix=%s"%(self.installPath())])
+        ret = self.runCommand([self.srcDir()+"/configure", "--prefix=%s"%(self.installPath())])
+        if ret == 0:
+            return True
+        return False
+    elif os.path.exists(self.srcDir()+"/autogen.sh"):
+        os.chdir(self.buildDir())
+        ret = self.runCommand([self.srcDir()+"/autogen.sh", "--prefix=%s"%(self.installPath())])
         if ret == 0:
             return True
         return False
@@ -26,7 +31,7 @@ class AutotoolsSystem(BuildSystem.BuildSystem):
   
   def make(self):
     os.chdir(self.buildDir())
-    ret = subprocess.call("make")
+    ret = self.runCommand("make")
     if ret == 0:
         return True
     return False
@@ -34,16 +39,19 @@ class AutotoolsSystem(BuildSystem.BuildSystem):
   def install(self):
     os.chdir(self.buildDir())
     if self.cxt.sudo:
-        ret = subprocess.call(["sudo","make","install"])
+        ret = self.runCommand(["sudo","make","install"])
     else:
-        ret = subprocess.call(["make","install"])
+        ret = self.runCommand(["make","install"])
     if ret == 0:
         return True
     return False
   
   def clean(self):
     os.chdir(self.buildDir())
-    ret = subprocess.call(["make","clean"])
+    ret = self.runCommand(["make","distclean"])
+    if ret == 0:
+        return True
+    ret = self.runCommand(["make", "clean"])
     if ret == 0:
         return True
     return False

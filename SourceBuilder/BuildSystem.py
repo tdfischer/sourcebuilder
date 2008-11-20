@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
+import os
 from optparse import OptionGroup
+import select
+import subprocess
 
 registeredSystems = []
 
@@ -32,6 +35,23 @@ class BuildSystem:
   def __init__(self, context):
     self.cxt = context
   
+  def runCommand(self, *args, **kwargs):
+    proc = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE, *args, **kwargs)
+    return self.logPopen(proc)
+    
+  def logPopen(self, process):
+    log = logging.getLogger("SourceBuilder.process.%s"%(process.pid))
+    while process.poll()==None:
+        (outputs,inputs,excepts) = select.select([process.stdout, process.stderr],[],[])
+        for out in outputs:
+            line = out.readline().strip()
+            if line != "":
+                log.debug(out.readline().strip())
+    for out in (process.stdout,process.stderr):
+        for line in out.readlines():
+            log.debug(line.strip())
+    return process.poll()
+  
   def package(self):
     return self.cxt.name
   
@@ -61,33 +81,61 @@ class BuildSystem:
     return self.configure() and self.make()
   
   def build(self):
-    if self.configure():
-      logging.info("Configuration complete.")
-    else:
-      logging.error("Configuration failed.")
-      return False
-    
-    if self.make():
-      logging.info("Build complete.")
-    else:
-      logging.error("Build failed.")
-      logging.info("Attempting reconfiguration")
-      if self.reconfigure():
-        logging.info("Reconfiguration complete. Resuming build.")
-      else:
-        logging.error("Reconfiguration failed. Trying to rebuild from scratch.")
-        if self.cleanBuild():
-          logging.info("Clean build complete.")
+    if os.path.exists(self.buildDir()) == False:
+        os.mkdir(self.buildDir())
+    if self.cxt.doConfigure:
+        logging.info("Configuring")
+        if self.configure():
+            logging.info("Configuration complete.")
         else:
-          logging.error("Clean build failed.")
-          return False
-    if self.install():
-      logging.info("Installation complete.")
+            logging.error("Configuration failed.")
+            if self.cxt.doRetry:
+                logging.info("Trying to clean before trying again.")
+                if self.clean():
+                    logging.info("Clean complete.")
+                else:
+                    logging.error("Clean failed.")
+                    return False
+            else:
+                return False
     else:
-      logging.error("Installation failed.")
-      return False
+        logging.debug("Not configuring.")
+    
+    if self.cxt.doBuild:
+        logging.info("Building")
+        if self.make():
+            logging.info("Build complete.")
+        else:
+            logging.error("Build failed.")
+            if self.cxt.doRetry:
+                logging.info("Attempting reconfiguration")
+                if self.reconfigure():
+                    logging.info("Reconfiguration complete. Resuming build.")
+                else:
+                    logging.error("Reconfiguration failed. Trying to rebuild from scratch.")
+                    if self.cleanBuild():
+                        logging.info("Clean build complete.")
+                    else:
+                        logging.error("Clean build failed.")
+                        return False
+            else:
+                logging.debug("Not retrying.")
+    else:
+        logging.debug("Not building.")
+    if self.cxt.doInstall:
+        logging.info("Installing")
+        if self.install():
+            logging.info("Installation complete.")
+        else:
+            logging.error("Installation failed.")
+            return False
+    else:
+        logging.debug("Not installing")
     return True
     
+  def clean(self):
+    pass
+  
   def configure(self):
     pass
   
