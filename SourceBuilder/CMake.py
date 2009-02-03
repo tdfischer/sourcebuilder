@@ -2,7 +2,6 @@
 import os
 import BuildSystem
 import BuildContext
-import logging
 import copy
 
 class CMakeSystem(BuildSystem.BuildSystem):
@@ -12,8 +11,8 @@ class CMakeSystem(BuildSystem.BuildSystem):
     BuildSystem.BuildSystem.__init__(self, context)
     self.buildContext = copy.deepcopy(self.cxt)
     self.buildContext.source = self.buildContext.build
-    logging.debug("CMake context: %s", context)
-    logging.debug("Real build context: %s",self.buildContext)
+    self.logging.debug("CMake context: %s", context)
+    self.logging.debug("Real build context: %s",self.buildContext)
 
   @staticmethod
   def canHandle(context):

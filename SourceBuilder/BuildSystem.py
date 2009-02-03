@@ -4,8 +4,11 @@ import os
 from optparse import OptionGroup
 import select
 import subprocess
+import time
 
 registeredSystems = []
+
+buildLogger = logging.getLogger("SourceBuilder.BuildSystem")
 
 def factory(context):
   s = getSystem(context)
@@ -15,9 +18,9 @@ def factory(context):
 
 def getSystem(context):
   for s in registeredSystems:
-    logging.debug("Checking %s against %s"%(s, context))
+    buildLogger.debug("Checking %s against %s"%(s, context))
     if s.canHandle(context):
-      logging.info("Using %s for building"%(s))
+      buildLogger.info("Using %s for build system"%(s))
       return s
 
 def buildArgs(parser):
@@ -34,6 +37,11 @@ class BuildSystem:
 
   def __init__(self, context):
     self.cxt = context
+    self.logging = logging.getLogger("SourceBuilder.BuildSystem.%s"%self.systemName)
+    self.__timers = {}
+    
+  def __str__(self):
+    return self.systemName
   
   def runCommand(self, *args, **kwargs):
     proc = subprocess.Popen(stdout=subprocess.PIPE, stderr=subprocess.PIPE, *args, **kwargs)
@@ -46,10 +54,14 @@ class BuildSystem:
         for out in outputs:
             line = out.readline().strip()
             if line != "":
-                log.debug(out.readline().strip())
-    for out in (process.stdout,process.stderr):
-        for line in out.readlines():
-            log.debug(line.strip())
+                if out == process.stdout:
+                    log.debug(out.readline().strip())
+                if out == process.stderr:
+                    log.error(out.readline().strip())
+    for line in process.stdout.readlines():
+        log.debug(line.strip())
+    for line in process.stderr.readlines():
+        log.error(line.strip())
     return process.poll()
   
   def package(self):
@@ -80,20 +92,33 @@ class BuildSystem:
       logging.error("Cleanup failed.")
     return self.configure() and self.make()
   
+  def startTimer(self, name):
+    self.__timers[name] = time.time()
+  
+  def stopTimer(self, name):
+    return time.time() - self.__timers[name]
+  
   def build(self):
+    self.startTimer("build")
     if os.path.exists(self.buildDir()) == False:
         os.mkdir(self.buildDir())
     if self.cxt.doConfigure:
         logging.info("Configuring")
+        self.startTimer("configure")
         if self.configure():
             logging.info("Configuration complete.")
+            logging.debug("Configuration took %r seconds"%self.stopTimer("configure"))
         else:
             logging.error("Configuration failed.")
+            logging.debug("Configuration took %r seconds"%self.stopTimer("configure"))
             if self.cxt.doRetry:
                 logging.info("Trying to clean before trying again.")
+                self.startTimer("clean")
                 if self.clean():
                     logging.info("Clean complete.")
+                    logging.debug("Clean took %r seconds"%self.stopTimer("clean"))
                 else:
+                    logging.debug("Clean took %r seconds"%self.stopTimer("clean"))
                     logging.error("Clean failed.")
                     return False
             else:
@@ -103,16 +128,22 @@ class BuildSystem:
     
     if self.cxt.doBuild:
         logging.info("Building")
+        self.startTimer("make")
         if self.make():
             logging.info("Build complete.")
+            logging.debug("Building took %r seconds"%self.stopTimer("make"))
         else:
             logging.error("Build failed.")
+            logging.debug("Building took %r seconds"%self.stopTimer("make"))
             if self.cxt.doRetry:
                 logging.info("Attempting reconfiguration")
+                self.startTimer("reconfiguration")
                 if self.reconfigure():
                     logging.info("Reconfiguration complete. Resuming build.")
+                    logging.debug("Reconfiguration took %r seconds"%self.stopTimer("reconfiguration"))
                 else:
                     logging.error("Reconfiguration failed. Trying to rebuild from scratch.")
+                    logging.debug("Reconfiguration took %r seconds"%self.stopTimer("reconfiguration"))
                     if self.cleanBuild():
                         logging.info("Clean build complete.")
                     else:
@@ -124,13 +155,17 @@ class BuildSystem:
         logging.debug("Not building.")
     if self.cxt.doInstall:
         logging.info("Installing")
+        self.startTimer("install")
         if self.install():
             logging.info("Installation complete.")
+            logging.debug("Install took %r seconds"%self.stopTimer("install"))
         else:
             logging.error("Installation failed.")
+            logging.debug("Install took %r seconds"%self.stopTimer("install"))
             return False
     else:
         logging.debug("Not installing")
+    logging.debug("Entire build took %r seconds"%self.stopTimer("build"))
     return True
     
   def clean(self):

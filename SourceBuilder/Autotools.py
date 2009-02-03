@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 import os
 import BuildSystem
-import logging
 
 class AutotoolsSystem(BuildSystem.BuildSystem):
   systemName = "Autotools"
@@ -13,16 +12,22 @@ class AutotoolsSystem(BuildSystem.BuildSystem):
   def canHandle(context):
     return os.path.exists(context.source+"/configure") or os.path.exists(context.source+"/Makefile") or os.path.exists(context.source+"/autogen.sh")
   
+  @staticmethod
+  def parseArgs(options):
+    options.add_option("-c", "--configure-flag", help="Pass a flag to configure", default=[], dest="configure_flags", type="string", action="append")
+    options.add_option("-t", "--target", help="Target to pass to make", default="all", dest="make_target")
+    return options
+  
   def configure(self):
     if os.path.exists(self.srcDir()+"/configure"):
         os.chdir(self.buildDir())
-        ret = self.runCommand([self.srcDir()+"/configure", "--prefix=%s"%(self.installPath())])
+        ret = self.runCommand([self.srcDir()+"/configure", "--prefix=%s"%(self.installPath())]+self.cxt.configure_flags)
         if ret == 0:
             return True
         return False
     elif os.path.exists(self.srcDir()+"/autogen.sh"):
         os.chdir(self.buildDir())
-        ret = self.runCommand([self.srcDir()+"/autogen.sh", "--prefix=%s"%(self.installPath())])
+        ret = self.runCommand([self.srcDir()+"/autogen.sh", "--prefix=%s"%(self.installPath())]+self.cxt.configure_flags)
         if ret == 0:
             return True
         return False
@@ -31,7 +36,7 @@ class AutotoolsSystem(BuildSystem.BuildSystem):
   
   def make(self):
     os.chdir(self.buildDir())
-    ret = self.runCommand("make")
+    ret = self.runCommand(["make",self.cxt.make_target])
     if ret == 0:
         return True
     return False

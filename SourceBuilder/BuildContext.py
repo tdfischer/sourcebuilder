@@ -13,7 +13,7 @@ def factory(args):
 
 def getContext(args):
     for s in registeredContexts:
-        logging.debug("Checking context %s"%(s))
+        BuildContext.logging.debug("Checking context %s"%(s))
         if s.canHandle(args):
             return s
 
@@ -27,6 +27,7 @@ def register(system):
 
 class BuildContext:
     contextName=None
+    logging = logging.getLogger("SourceBuilder.BuildContext")
     def __init__(self, args):
         if args.build == None:
             args.build = "/tmp/build-"+args.name
@@ -38,8 +39,20 @@ class BuildContext:
     def args(self):
         return self._args
     
+    def setArgs(self, args):
+        self._args = args
+    
     def __str__(self):
+        return self.contextName
+    
+    def __repr__(self):
         return "<BuildContext(%s) in src:%s, build:%s>"%(self.__class__.contextName, self.source, self.build)
+    
+    def save(self):
+        raise NotImplementedError
+    
+    def load(self):
+        raise NotImplementedError
     
     @staticmethod
     def parseArgs(options):

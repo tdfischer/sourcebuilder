@@ -4,7 +4,12 @@ import SourceBuilder
 import logging
 import os
 import sys
-logging.basicConfig(level=logging.DEBUG)
+
+logging.basicConfig(format="[%(asctime)s] %(message)s", level=logging.DEBUG)
+#fmt = logging.Formatter("[%(asctime)s] %(message)s")
+#logger = logging.getLogger("SourceBuilder")
+#handler = CursesOutput(stdscr)
+#logger.addHandler(handler)
 builder = SourceBuilder.builder()
 builder.build()
 

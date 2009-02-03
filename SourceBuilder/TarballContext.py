@@ -7,6 +7,7 @@ import logging
 class TarballContext(BuildContext.BuildContext):
     contextName="Tarball"
     def __init__(self, args):
+        logging = BuildContext.logging
         args.source = os.path.abspath(args.source)
         filename = os.path.basename(args.source)
         if args.name == None:
