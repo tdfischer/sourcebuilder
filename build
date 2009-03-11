@@ -1,23 +1,41 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 import SourceBuilder
+from SourceBuilder.BuildSystem import BuildSystem
 import logging
 import os
 import sys
 
 logging.basicConfig(format="[%(asctime)s] %(message)s", level=logging.DEBUG)
-#fmt = logging.Formatter("[%(asctime)s] %(message)s")
-#logger = logging.getLogger("SourceBuilder")
-#handler = CursesOutput(stdscr)
-#logger.addHandler(handler)
-builder = SourceBuilder.builder()
-builder.build()
 
-#if len(sys.argv) >= 2:
-#	builder = SourceBuilder.builder(sys.argv[1])
-#else:
-#	builder = SourceBuilder.builder(os.getcwd())
-#builder.build()
+def stageCallback(stage, status):
+    if status == BuildSystem.STATUS_RUNNING:
+        status = "running"
+    elif status == BuildSystem.STATUS_SKIPPED:
+        status = "skipped"
+    elif status == BuildSystem.STATUS_SUCCESS:
+        status = "complete"
+    elif status == BuildSystem.STATUS_FAILURE:
+        status = "failed"
+    
+    if stage == BuildSystem.STAGE_INIT:
+        builder.logging.info("Init %s", status)
+    elif stage == BuildSystem.STAGE_CLEAN:
+        builder.logging.info("Clean %s", status)
+    elif stage == BuildSystem.STAGE_CONFIGURE:
+        builder.logging.info("Configure %s", status)
+    elif stage == BuildSystem.STAGE_BUILD:
+        builder.logging.info("Build %s", status)
+    elif stage == BuildSystem.STAGE_INSTALL:
+        builder.logging.info("Install %s", status)
+
+def progressCallback(progress):
+    builder.logging.info("%s%% complete", progress)
+
+builder = SourceBuilder.builder()
+builder.addCallback('stage', stageCallback)
+builder.addCallback('progress', progressCallback)
+builder.build()
 
 #Possible uses of the 'build' command:
 #build source.tar.bz2 - Builds and installs source.tar.bz2

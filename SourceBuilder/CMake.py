@@ -3,6 +3,7 @@ import os
 import BuildSystem
 import BuildContext
 import copy
+import re
 
 class CMakeSystem(BuildSystem.BuildSystem):
   systemName = "CMake"
@@ -34,10 +35,18 @@ class CMakeSystem(BuildSystem.BuildSystem):
   
   def make(self):
     realBuilder = BuildSystem.factory(self.buildContext)
+    realBuilder.addCallback('stdout',self.makeProgress)
     return realBuilder.make()
+  
+  def makeProgress(self, line):
+    progress = re.search('^\[([ 0-9]{3})%\]', line)
+    if progress != None:
+        self.logging.info("Progress: %s%%",progress.group(1).strip())
+        self.doCallback("progress", progress.group(1).strip())
   
   def install(self):
     realBuilder = BuildSystem.factory(self.buildContext)
+    realBuilder.addCallback('stdout',self.makeProgress)
     return realBuilder.install()
     
   def clean(self):

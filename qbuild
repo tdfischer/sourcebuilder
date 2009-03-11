@@ -1,0 +1,63 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+import SourceBuilder
+from SourceBuilder.BuildSystem import BuildSystem
+import logging
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
+from Ui_BuildWindow import Ui_BuildWindow
+import sys
+
+class BuilderThread(QThread):
+    def __init__(self, parent, builder):
+        QThread.__init__(self, parent)
+        self.__build = builder
+        self.__build.addCallback('stage', self.stageCallback)
+        self.__build.addCallback('progress', self.progressCallback)
+        self.__build.addCallback('stdout', self.logCallback)
+    
+    def run(self):
+        self.__build.build()
+    
+    def stageCallback(self, stage, status):
+        self.emit(SIGNAL("stageUpdate"), stage, status)
+        
+    def progressCallback(self, progress):
+        self.emit(SIGNAL("progressUpdate"), progress)
+    
+    def logCallback(self, text):
+        self.emit(SIGNAL("textOutput"), text)
+
+class MainWindow(QMainWindow, Ui_BuildWindow):
+    def __init__(self, builder):
+        QMainWindow.__init__(self)
+        self.setupUi(self)
+        self.__thread = BuilderThread(self, builder)
+        QObject.connect(self.__thread, SIGNAL("stageUpdate"), self.stageCallback, Qt.QueuedConnection)
+        QObject.connect(self.__thread, SIGNAL("progressUpdate"), self.progressCallback, Qt.QueuedConnection)
+        QObject.connect(self.__thread, SIGNAL("textOutput"), self.log.appendPlainText, Qt.QueuedConnection)
+        QObject.connect(self.__thread, SIGNAL("finished"), self.close)
+        QTimer.singleShot(0, self.__thread.start)
+    
+    def stageCallback(self, stage, status):
+        if stage == BuildSystem.STAGE_INIT:
+            self.lblInit.setEnabled(True)
+        elif stage == BuildSystem.STAGE_CONFIGURE:
+            self.lblConfigure.setEnabled(True)
+        elif stage == BuildSystem.STAGE_BUILD:
+            self.lblBuild.setEnabled(True)
+        elif stage == BuildSystem.STAGE_INSTALL:
+            self.lblInstall.setEnabled(True)
+        self.progress.setMaximum(0)
+        self.progress.setValue(0)
+    
+    def progressCallback(self, progress):
+        self.progress.setMaximum(100)
+        self.progress.setValue(int(progress))
+
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    builder = SourceBuilder.builder()
+    mw = MainWindow(builder)
+    mw.show()
+    sys.exit(app.exec_())
